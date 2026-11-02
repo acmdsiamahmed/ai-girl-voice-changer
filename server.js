@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.CARTESIA_API_KEY;
 const CARTESIA_VERSION = process.env.CARTESIA_VERSION || "2026-08-14";
 
-app.use(express.static("public"));
+app.use(express.static(__dirname));
 
 function authHeaders() {
   if (!API_KEY) throw new Error("Server is missing CARTESIA_API_KEY in its environment variables.");
