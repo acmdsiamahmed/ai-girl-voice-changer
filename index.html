@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Girl Voice Changer</title>
+<style>
+:root{color-scheme:dark;--bg:#10101a;--panel:#1b1b2a;--muted:#b6b4c8;--pink:#ff83bd;--purple:#b58cff}
+*{box-sizing:border-box}body{margin:0;padding:22px;background:radial-gradient(circle at top,#302044,#10101a 55%);color:#fff;font:16px system-ui,sans-serif}
+main{max-width:700px;margin:16px auto}.brand{color:var(--pink);font-weight:800;letter-spacing:2px;font-size:13px}
+h1{font-size:clamp(28px,6vw,40px);margin:8px 0}.sub,.hint{color:var(--muted);line-height:1.6}
+.card{background:#1b1b2a;border:1px solid #ffffff20;border-radius:20px;padding:20px;margin:18px 0}
+h2{font-size:19px;margin:0 0 14px}.btn{border:0;border-radius:13px;padding:13px 17px;font-weight:750;background:linear-gradient(110deg,var(--purple),var(--pink));color:#171321}
+.btn.secondary{background:#363448;color:white;border:1px solid #ffffff20}.btn:disabled{opacity:.45}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input[type=file],input[type=text],select{width:100%;padding:12px;border-radius:10px;border:1px solid #ffffff30;background:#29283a;color:white;margin:7px 0 13px}
+label{font-weight:650;display:block;margin-top:10px}.hint{font-size:13px}
+.status{font-size:14px;color:#ddd;margin-top:12px;white-space:pre-wrap}
+audio{width:100%;margin-top:12px}.warning{border-left:3px solid #ffbd68;padding:10px 12px;background:#ffbd6810;color:#f4d8b1;border-radius:8px}
+.ok{color:#8ce5b1}footer{color:#88869b;font-size:12px;text-align:center;margin:24px 0}
+</style>
+</head>
+<body><main>
+<div class="brand">VOICE LAB / CARTESIA</div>
+<h1>AI Girl Voice Changer</h1>
+<p class="sub">প্রথমে অনুমতিপ্রাপ্ত রেফারেন্স অডিও থেকে voice clone তৈরি করো, তারপর নিজের রেকর্ড করা কথা সেই voice-এ রূপান্তর করো।</p>
+
+<section class="card">
+<h2>১. রেফারেন্স কণ্ঠ থেকে Voice Clone তৈরি</h2>
+<label for="ref">বোনের অনুমতিপ্রাপ্ত পরিষ্কার অডিও নির্বাচন করো</label>
+<input id="ref" type="file" accept="audio/*">
+<p class="hint">১০–৬০ সেকেন্ডের একটি পরিষ্কার অংশ ব্যবহার করো। একজন বক্তা, কোনো গান/ব্যাকগ্রাউন্ড মিউজিক নয়। ফাইল ১৬ MB-এর কম হতে হবে। দীর্ঘ গল্পের পুরো ফাইল না দিয়ে ছোট পরিষ্কার অংশ কাটো।</p>
+<label for="voiceName">Voice-এর নাম</label>
+<input id="voiceName" type="text" value="Sister Voice">
+<label for="language">অডিওর ভাষা</label>
+<select id="language"><option value="bn">বাংলা (Bengali)</option><option value="en">English</option><option value="th">Thai</option><option value="hi">Hindi</option></select>
+<button class="btn" id="cloneBtn">ভয়েস ক্লোন তৈরি করো</button>
+<div class="status" id="cloneStatus">এখনো clone তৈরি হয়নি।</div>
+</section>
+
+<section class="card">
+<h2>২. নিজের কণ্ঠ রেকর্ড করো</h2>
+<div class="row">
+<button class="btn" id="recBtn">● রেকর্ড শুরু</button>
+<button class="btn secondary" id="stopBtn" disabled>■ বন্ধ</button>
+</div>
+<div class="status" id="recStatus">মাইক্রোফোন প্রস্তুত।</div>
+<audio id="inputPlayer" controls></audio>
+</section>
+
+<section class="card">
+<h2>৩. Cartesia Voice Changer</h2>
+<label for="voiceId">Clone Voice ID</label>
+<input id="voiceId" type="text" placeholder="Clone সফল হলে Voice ID এখানে আসবে">
+<button class="btn" id="convertBtn">আমার কণ্ঠ পরিবর্তন করো</button>
+<div class="status" id="convertStatus">রেকর্ড করার পর Convert চাপো।</div>
+<audio id="outputPlayer" controls></audio>
+<a class="btn secondary" id="download" hidden download="converted-voice.wav" style="display:inline-block;margin-top:12px;text-decoration:none">পরিবর্তিত অডিও ডাউনলোড</a>
+</section>
+
+<section class="card">
+<h2>গুরুত্বপূর্ণ সীমাবদ্ধতা</h2>
+<p class="warning">এটি রেকর্ড করা অডিওকে অন্য কণ্ঠে রূপান্তর করে; এটি এখনো লাইভ/রিয়েল-টাইম নয় এবং WhatsApp, IMO বা Messenger কলের মাইক্রোফোন বদলাতে পারে না। API Key নিরাপদ Backend-এ থাকে—এই HTML-এ নয়।</p>
+<p class="hint">শুধু কণ্ঠের মালিকের অনুমতি থাকা অডিও ব্যবহার করো।</p>
+</section>
+<footer>Cartesia API connection • API key is kept on the server</footer>
+</main>
+<script>
+let recorder, chunks=[], recordedBlob=null, stream=null;
+const $=id=>document.getElementById(id);
+const setStatus=(id,msg)=>$(id).textContent=msg;
+async function jsonOrError(res){
+  if(!res.ok){let msg='HTTP '+res.status;try{const d=await res.json();msg=d.error||d.message||msg}catch{}throw new Error(msg)}
+  return res.json();
+}
+$('cloneBtn').onclick=async()=>{
+ const file=$('ref').files[0];
+ if(!file){setStatus('cloneStatus','আগে একটি অডিও ফাইল নির্বাচন করো।');return}
+ if(file.size>16*1024*1024){setStatus('cloneStatus','ফাইল ১৬ MB-এর বেশি। ১০–৬০ সেকেন্ডের ছোট অংশ ব্যবহার করো।');return}
+ const fd=new FormData();fd.append('clip',file);fd.append('name',$('voiceName').value.trim()||'Sister Voice');fd.append('language',$('language').value);
+ $('cloneBtn').disabled=true;setStatus('cloneStatus','Cartesia-তে clone তৈরি হচ্ছে…');
+ try{
+  const data=await jsonOrError(await fetch('/api/clone',{method:'POST',body:fd}));
+  $('voiceId').value=data.id||'';
+  setStatus('cloneStatus','সফল! Voice ID সংরক্ষিত হয়েছে।\n'+(data.id||''));
+ }catch(e){setStatus('cloneStatus','Clone ব্যর্থ: '+e.message)}
+ finally{$('cloneBtn').disabled=false}
+};
+$('recBtn').onclick=async()=>{
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+  const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(x=>MediaRecorder.isTypeSupported(x));
+  recorder=new MediaRecorder(stream,mime?{mimeType:mime}:{});
+  chunks=[];recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+  recorder.onstop=()=>{
+   recordedBlob=new Blob(chunks,{type:recorder.mimeType||'audio/webm'});
+   $('inputPlayer').src=URL.createObjectURL(recordedBlob);
+   setStatus('recStatus','রেকর্ড সম্পন্ন। এখন Convert চাপো।');
+   stream.getTracks().forEach(t=>t.stop());
+  };
+  recorder.start();$('recBtn').disabled=true;$('stopBtn').disabled=false;setStatus('recStatus','রেকর্ড চলছে…');
+ }catch(e){setStatus('recStatus','মাইক্রোফোন চালু হয়নি: '+e.message)}
+};
+$('stopBtn').onclick=()=>{if(recorder&&recorder.state!=='inactive'){recorder.stop();$('stopBtn').disabled=true;$('recBtn').disabled=false}};
+$('convertBtn').onclick=async()=>{
+ const id=$('voiceId').value.trim();
+ if(!id){setStatus('convertStatus','আগে Voice Clone তৈরি করে Voice ID বসাও।');return}
+ if(!recordedBlob){setStatus('convertStatus','আগে নিজের কণ্ঠ রেকর্ড করো।');return}
+ const fd=new FormData();fd.append('clip',recordedBlob,'my-recording.webm');fd.append('voice_id',id);
+ $('convertBtn').disabled=true;setStatus('convertStatus','Cartesia তোমার কণ্ঠ পরিবর্তন করছে…');
+ try{
+  const res=await fetch('/api/convert',{method:'POST',body:fd});
+  if(!res.ok){let msg='HTTP '+res.status;try{const d=await res.json();msg=d.error||msg}catch{}throw new Error(msg)}
+  const blob=await res.blob(),url=URL.createObjectURL(blob);
+  $('outputPlayer').src=url;$('download').href=url;$('download').hidden=false;
+  setStatus('convertStatus','সফল! পরিবর্তিত কণ্ঠ শুনে দেখো।');
+ }catch(e){setStatus('convertStatus','Conversion ব্যর্থ: '+e.message)}
+ finally{$('convertBtn').disabled=false}
+};
+</script>
+</body></html>
